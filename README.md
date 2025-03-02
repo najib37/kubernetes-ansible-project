@@ -1,2 +1,0 @@
-# kubz
-kubs

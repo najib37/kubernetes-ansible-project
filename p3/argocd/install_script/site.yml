@@ -1,0 +1,9 @@
+---
+
+- name: setup docker and running my compose services
+  hosts: all
+  become: true
+  roles:
+    - delete_k3d
+    - setup_k3d
+    - setup_argocd
