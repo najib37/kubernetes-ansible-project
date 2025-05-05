@@ -1,0 +1,38 @@
+global:
+  edition: ce
+  registry:
+    enabled: false
+  ingress:
+    configureCertmanager: false
+  hosts:
+    https: false
+  rails:
+    bootsnap:
+      enabled: false
+certmanager:
+  install: false
+nginx-ingress:
+  enabled: false
+prometheus:
+  install: false
+gitlab-runner:
+  install: false
+gitlab:
+  webservice:
+    minReplicas: 1
+    maxReplicas: 1
+    # service:
+    #   type: NodePort
+    #   nodePort: 31123
+  sidekiq:
+    minReplicas: 1
+    maxReplicas: 1
+  gitlab-shell:
+    minReplicas: 1
+    maxReplicas: 1
+    # service:
+    #   type: NodePort
+    #   nodePort: 32022
+  kas:
+    minReplicas: 1
+    maxReplicas: 1

@@ -1,10 +1,11 @@
 ---
 
-- name: setup the k3d cluster with argocd
+- name: setup docker and running my compose services
   hosts: all
   become: true
   roles:
     # - delete_k3d
     - setup_k3d
+    - setup_gitlab
     - setup_argocd
     # - create_repos

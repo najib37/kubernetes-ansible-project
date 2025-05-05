@@ -8,24 +8,99 @@
       metadata:
         name: argocd
 
-- name: Add ArgoCD Helm repository
-  kubernetes.core.helm_repository:
-    name: argo
-    repo_url: https://argoproj.github.io/argo-helm
+- name: Apply Argo CD installation manifests
+  kubernetes.core.k8s:
+    state: present
+    src: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+    namespace: argocd
+    # wait: true
+    # wait_timeout: 300
 
-- name: Install ArgoCD using Helm
-  kubernetes.core.helm:
-    name: argocd
-    chart_ref: argo/argo-cd
-    release_namespace: argocd
-    create_namespace: true
+- name: Generate a random secret key for Dex
+  ansible.builtin.set_fact:
+    dex_secret_key: "{{ lookup('password', '/dev/null chars=ascii_letters,digits length=32') }}"
+  run_once: true
+  register: dex_key_gen
+
+- name: Get ArgoCD secret info
+  kubernetes.core.k8s_info:
+    kind: Secret
+    name: argocd-secret
+    namespace: argocd
+  register: argocd_secret_info
+
+- name: Patch argocd-dex-server-secret with the generated key
+  kubernetes.core.k8s:
+    state: patched
+    kind: Secret
+    name: argocd-secret
+    namespace: argocd
+    definition:
+      stringData:
+        server.secretkey: "{{ dex_secret_key }}"
+  when: argocd_secret_info.resources[0].data['server.secretkey'] is not defined
+
+- name: Patch Argo CD server to enable insecure mode
+  kubernetes.core.k8s:
+    state: patched
+    kind: ConfigMap
+    name: argocd-cmd-params-cm
+    namespace: argocd
+    definition:
+      data:
+        server.insecure: "true"
+  when: argocd_secret_info.resources[0].data['server.secretkey'] is not defined
+
+- name: Restart Argo CD server deployment to apply changes
+  kubernetes.core.k8s:
+    state: patched
+    kind: Deployment
+    name: argocd-server
+    namespace: argocd
+    definition:
+      spec:
+        template:
+          metadata:
+            annotations:
+              kubectl.kubernetes.io/restartedAt: "{{ ansible_date_time.iso8601 }}"
     wait: true
-    values:
-        ingress:
-          enabled: true
-          ingressClassName: "traefik"
-          pathType: Prefix
-        configs:
-          params:
-            server.insecure: true
-            # server.rootpath: /argocd
+    wait_timeout: 1000
+  when: argocd_secret_info.resources[0].data['server.secretkey'] is not defined
+
+- name: Wait for Argo CD server to be ready
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    name: argocd-server
+    namespace: argocd
+  register: argocd_deployment
+  until: 
+    - argocd_deployment.resources[0].status.readyReplicas == 1
+  retries: 30
+  delay: 10
+
+- name: Apply my argocd ingress router
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('file', playbook_dir + '/../config/ingress-router.yml') | from_yaml }}"
+    namespace: argocd
+    wait: true
+    wait_timeout: 1000
+
+- name: Apply my argocd application
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('file', playbook_dir + '/../config/argocd-application.yml') | from_yaml }}"
+    namespace: argocd
+    wait: true
+    wait_timeout: 1000
+
+- name: Get ArgoCD initial admin password
+  kubernetes.core.k8s_info:
+    kind: Secret
+    name: argocd-initial-admin-secret
+    namespace: argocd
+  register: argocd_secret
+- name: Log ArgoCD admin credentials
+  ansible.builtin.debug:
+    msg: "Username: admin || Password: {{ argocd_secret.resources[0].data.password | b64decode }}"
+
