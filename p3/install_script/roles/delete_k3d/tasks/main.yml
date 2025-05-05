@@ -45,6 +45,6 @@
 #     path: /etc/apt/keyrings/docker.asc
 #     state: absent
 
-- name: Clean apt cache
-  apt:
-    autoremove: true
+# - name: Clean apt cache
+#   apt:
+#     autoremove: true

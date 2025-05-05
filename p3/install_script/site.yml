@@ -4,6 +4,7 @@
   hosts: all
   become: true
   roles:
-    - delete_k3d
+    # - delete_k3d
     - setup_k3d
-    - setup_argocd
+    # - setup_argocd
+    # - create_repos

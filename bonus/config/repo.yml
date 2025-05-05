@@ -1,0 +1,21 @@
+apiVersion: apps.gitlab.com/v1beta1
+kind: Repository
+metadata:
+  name: example-repo
+  namespace: gitlab-system
+spec:
+  project:
+    name: example-project
+    description: "Example repository created via GitLab operator"
+    visibility: public
+    path: example-project
+    namespace: gitlab-system
+    initialize: true
+    defaultBranch: main
+    features:
+      issues: true
+      mergeRequests: true
+      wiki: true
+      snippets: true
+  gitlab:
+    instanceName: gitlab
