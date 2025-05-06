@@ -1,59 +1,13 @@
-# - name: Add cert-manager Helm repository
-#   kubernetes.core.helm_repository:
-#     name: jetstack
-#     repo_url: https://charts.jetstack.io
-#     state: present
-#
-# - name: Create cert-manager namespace
-#   kubernetes.core.k8s:
-#     kind: Namespace
-#     name: cert-manager
-#     state: present
-#
-# - name: Install cert-manager CRDs
-#   kubernetes.core.k8s:
-#     src: https://github.com/cert-manager/cert-manager/releases/download/v1.13.2/cert-manager.crds.yaml
-#     state: present
-#
-# - name: Install cert-manager
-#   kubernetes.core.k8s:
-#     src: https://github.com/cert-manager/cert-manager/releases/download/v1.13.2/cert-manager.yaml
-#     state: present
-#
-# - name: Wait for cert-manager deployment to be ready
-#   kubernetes.core.k8s_info:
-#     kind: Deployment
-#     name: cert-manager
-#     namespace: cert-manager
-#     wait: yes
-#     wait_condition:
-#       type: Available
-#       status: "True"
-#
-# - name: Add GitLab Helm repository
-#   kubernetes.core.helm_repository:
-#     name: gitlab
-#     repo_url: https://charts.gitlab.io/
-#     state: present
-#
-# - name: Create gitlab-system namespace
-#   kubernetes.core.k8s:
-#     kind: Namespace
-#     name: gitlab
-#     state: present
-#
-# - name: Install GitLab operator
-#   kubernetes.core.helm:
-#     name: gitlab-operator
-#     chart_ref: gitlab/gitlab-operator
-#     release_namespace: gitlab
-#     wait: true
-
 - name: Add GitLab Helm repository
   kubernetes.core.helm_repository:
     name: gitlab
     repo_url: https://charts.gitlab.io/
     state: present
+
+- name: Install gitlab module for python
+  pip:
+    name: python-gitlab
+    break_system_packages: true
 
 - name: Create gitlab namespace
   kubernetes.core.k8s:
@@ -99,8 +53,64 @@
     namespace: gitlab
   register: gitlab_secret
 
+- name: Create public GitLab project
+  community.general.gitlab_project:
+    api_url: "http://{{ansible_host}}:8181/"
+    api_username: "root"
+    api_password: "{{ gitlab_secret.resources[0].data.password | b64decode }}"
+    name: "my-public-repo"
+    visibility: "public"
+    initialize_with_readme: true
+    state: present
+    validate_certs: false
+
+- name: Configure git repository
+  git:
+    repo: "http://{{ansible_host}}:8181/root/my-public-repo.git"
+    dest: "/tmp/my-public-repo"
+    remote: "origin"
+    force: yes
+    update: yes
+    version: main
+
+- name: Copy files from /home/repo to the repository
+  copy:
+    src: "/home/repo/"
+    dest: "/tmp/my-public-repo/"
+    remote_src: yes
+
+- name: Configure git user
+  git_config:
+    name: user.name
+    scope: local
+    repo: /tmp/my-public-repo
+    value: "root"
+
+- name: Configure git email
+  git_config:
+    name: user.email
+    scope: local
+    repo: /tmp/my-public-repo
+    value: "root@localhost"
+
+- name: Add and commit files
+  shell:
+    cmd: |
+      cd /tmp/my-public-repo
+      git add .
+      git commit -m "Adding files from /home/repo"
+  args:
+    chdir: /tmp/my-public-repo
+
+- name: Push to GitLab repository
+  shell:
+    cmd: |
+      cd /tmp/my-public-repo
+      git push http://root:XTpU2I03mUHIV7r0R6oY34jQscwzNOGv0yA6xuaCYWAyZusd0Ytih3napZj8afmk@143.110.238.90:8181/root/my-public-repo.git main
+  args:
+    chdir: /tmp/my-public-repo
+
 
 - name: Log GitLab root credentials
   ansible.builtin.debug:
     msg: "Username: root || Password: {{ gitlab_secret.resources[0].data.password | b64decode }}"
-

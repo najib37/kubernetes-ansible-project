@@ -7,9 +7,11 @@ spec:
   type: NodePort
   ports:
     - port: 8080
-      targetPort: 8080
-      nodePort: 31123
+      targetPort: 8181
+      nodePort: 30081
       protocol: TCP
+
   selector:
-    app: gitlab
-    component: webservice
+    app: webservice
+    gitlab.com/webservice-name: default
+    release: gitlab

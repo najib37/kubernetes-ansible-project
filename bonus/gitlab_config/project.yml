@@ -1,0 +1,24 @@
+apiVersion: apps.gitlab.com/v1beta1
+kind: Project
+metadata:
+  name: public-repository
+  namespace: gitlab
+spec:
+  name: my-repo
+  description: "A public repository created using GitLab Operator"
+  path: my-repo
+  visibility: public
+  initialize_with_readme: true
+  shared_runners_enabled: true
+  # Connect to your GitLab instance
+  gitlab:
+    host: gitlab-webservice-default.gitlab.svc.cluster.local
+    port: 8181
+    protocol: http
+  issues_enabled: true
+  merge_requests_enabled: true
+  wiki_enabled: false
+  snippets_enabled: true
+  lfs_enabled: true
+  packages_enabled: true
+  container_registry_enabled: false

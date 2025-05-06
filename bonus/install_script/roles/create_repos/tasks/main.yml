@@ -5,7 +5,7 @@
 
 - name: Create public GitLab project
   community.general.gitlab_project:
-    api_url: "http://143.110.238.90:8181/"
+    api_url: "http://104.248.119.73:8181/"
     api_username: "root"
     api_password: "XTpU2I03mUHIV7r0R6oY34jQscwzNOGv0yA6xuaCYWAyZusd0Ytih3napZj8afmk"
     name: "my-public-repo"

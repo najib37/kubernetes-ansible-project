@@ -66,7 +66,7 @@
 
 - name: Create k3d Cluster
   command:
-    cmd: k3d cluster create mycluster --api-port "104.248.119.73:9192" -p "443:443@loadbalancer" -p "8888:30030@loadbalancer" -p "8181:30130@loadbalancer" -p "9090:31123@loadbalancer"
+    cmd: k3d cluster create mycluster --api-port "104.248.119.73:9192" -p "443:443@loadbalancer" -p "8888:30088@loadbalancer" -p "8181:30081@loadbalancer" -p "2222:30022@loadbalancer" -p "8080:30080@loadbalancer"
     creates: /root/.kube/config
 
 

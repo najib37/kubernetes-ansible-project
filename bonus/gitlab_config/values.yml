@@ -19,7 +19,7 @@ nginx-ingress:
 prometheus:
   install: false
 gitlab-runner:
-  install: false
+  install: true
 gitlab:
   webservice:
     minReplicas: 1
@@ -30,12 +30,10 @@ gitlab:
   gitlab-shell:
     minReplicas: 1
     maxReplicas: 1
-    # service:
-    #   type: NodePort
-    #   nodePort: 32022
+  gitlab-runner:
+    minReplicas: 1
+    maxReplicas: 1
 registry:
   hpa:
     minReplicas: 1
     maxReplicas: 1
-
-

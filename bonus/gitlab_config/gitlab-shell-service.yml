@@ -7,9 +7,9 @@ spec:
   type: NodePort
   ports:
     - protocol: TCP
-      targetPort: 22
+      targetPort: 2222
       port: 22
-      nodePort: 32022
+      nodePort: 30022
   selector:
-    app: gitlab
-    component: gitlab-shell
+    app: gitlab-shell
+    release: gitlab
