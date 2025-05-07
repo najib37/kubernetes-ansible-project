@@ -5,7 +5,7 @@
   become: true
   roles:
     # - delete_k3d
-    # - setup_k3d
+    - setup_k3d
     - setup_gitlab
-    # - setup_argocd
+    - setup_argocd
     # - create_repos

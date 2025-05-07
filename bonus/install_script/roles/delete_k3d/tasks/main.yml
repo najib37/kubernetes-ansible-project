@@ -25,26 +25,26 @@
     path: /usr/local/bin/kubectl
     state: absent
 
-# - name: Remove Docker packages
-#   apt:
-#     name: 
-#       - docker-ce
-#       - docker-ce-cli
-#       - docker-compose-plugin
-#       - containerd.io
-#     state: absent
-#     purge: yes
-#
-# - name: Remove Docker repository
-#   apt_repository:
-#     repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable"
-#     state: absent
-#
-# - name: Remove Docker GPG key
-#   file:
-#     path: /etc/apt/keyrings/docker.asc
-#     state: absent
+- name: Remove Docker packages
+  apt:
+    name: 
+      - docker-ce
+      - docker-ce-cli
+      - docker-compose-plugin
+      - containerd.io
+    state: absent
+    purge: yes
 
-# - name: Clean apt cache
-#   apt:
-#     autoremove: true
+- name: Remove Docker repository
+  apt_repository:
+    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable"
+    state: absent
+
+- name: Remove Docker GPG key
+  file:
+    path: /etc/apt/keyrings/docker.asc
+    state: absent
+
+- name: Clean apt cache
+  apt:
+    autoremove: true

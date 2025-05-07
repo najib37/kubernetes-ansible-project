@@ -1,12 +1,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: dev-app
+  name: argocd-application-cd
   namespace: argocd
+  annotations:
+    argocd.argoproj.io/refresh: "30s"
 spec:
   project: default
   source:
-    repoURL: https://github.com/najib37/deployment-test.git
+    repoURL: http://gitlab-webservice-default.gitlab.svc.cluster.local:8181/root/my-public-repo.git
     targetRevision: HEAD
     path: apps
   destination:

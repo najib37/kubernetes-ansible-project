@@ -1,0 +1,7 @@
+---
+
+- name: clear the k3d cluster
+  hosts: all
+  become: true
+  roles:
+    - delete_k3d

@@ -46,18 +46,22 @@
     wait: true
     wait_timeout: 1000
 
-- name: Get GitLab initial root password
+- name: Get GitLab initial root secret
   kubernetes.core.k8s_info:
     kind: Secret
     name: "gitlab-gitlab-initial-root-password"
     namespace: gitlab
   register: gitlab_secret
 
+- name: Get GitLab initial root password
+  set_fact:
+    gitlab_password: "{{ gitlab_secret.resources[0].data.password | b64decode }}"
+
 - name: Create public GitLab project
   community.general.gitlab_project:
     api_url: "http://{{ansible_host}}:8181/"
     api_username: "root"
-    api_password: "{{ gitlab_secret.resources[0].data.password | b64decode }}"
+    api_password: "{{ gitlab_password }}"
     name: "my-public-repo"
     visibility: "public"
     initialize_with_readme: true
@@ -73,12 +77,6 @@
     update: yes
     version: main
 
-- name: Copy files from /home/repo to the repository
-  copy:
-    src: "/home/repo/"
-    dest: "/tmp/my-public-repo/"
-    remote_src: yes
-
 - name: Configure git user
   git_config:
     name: user.name
@@ -93,24 +91,49 @@
     repo: /tmp/my-public-repo
     value: "root@localhost"
 
+- name: Copy application files to remote server
+  copy:
+    src: "{{ lookup('env', 'HOME') }}/work/kubz/bonus/application/application-deployment.yml"
+    dest: "/tmp/application-deployment.yml"
+    remote_src: no
+
+- name: Create apps directory in the repository
+  file:
+    path: "/tmp/my-public-repo/apps"
+    state: directory
+    mode: '0755'
+
+- name: Copy files from remote tmp to the repository
+  copy:
+    src: "/tmp/application-deployment.yml"
+    dest: "/tmp/my-public-repo/apps/application-deployment.yml"
+    remote_src: yes
+
 - name: Add and commit files
   shell:
     cmd: |
-      cd /tmp/my-public-repo
+      cd /tmp/my-public-repo/apps
       git add .
-      git commit -m "Adding files from /home/repo"
+      git diff --quiet --exit-code && git commit -m "Adding files from /tmp/application"
   args:
     chdir: /tmp/my-public-repo
+  register: git_commit
+  failed_when: git_commit.rc != 0 and git_commit.rc != 1
 
 - name: Push to GitLab repository
   shell:
     cmd: |
-      cd /tmp/my-public-repo
-      git push http://root:XTpU2I03mUHIV7r0R6oY34jQscwzNOGv0yA6xuaCYWAyZusd0Ytih3napZj8afmk@143.110.238.90:8181/root/my-public-repo.git main
+      cd /tmp/my-public-repo/apps
+      git push http://root:'{{gitlab_password}}'@'{{ansible_host}}':8181/root/my-public-repo.git main
   args:
     chdir: /tmp/my-public-repo
-
+  when: git_commit.rc == 0
 
 - name: Log GitLab root credentials
   ansible.builtin.debug:
-    msg: "Username: root || Password: {{ gitlab_secret.resources[0].data.password | b64decode }}"
+    msg: "Gitlab Webservice at http://{{ansible_host}}:8181/root/my-public-repo Creds => Username: root || Password: {{ gitlab_password }}"
+
+- name: Log How to push to GitLab
+  ansible.builtin.debug:
+    msg: "To push to GitLab, use the following command:
+          git push http://root:{{gitlab_password}}@{{ansible_host}}:8181/root/my-public-repo.git main"
