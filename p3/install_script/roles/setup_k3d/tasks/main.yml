@@ -71,7 +71,7 @@
 
 - name: Create k3d Cluster
   command:
-    cmd: k3d cluster create mycluster --api-port "104.248.119.73:9192" -p "443:443@loadbalancer" -p "8888:30088@loadbalancer" -p "8181:30081@loadbalancer"
+    cmd: k3d cluster create mycluster --api-port "{{ansible_host}}:9192" -p "443:443@loadbalancer" -p "8888:30088@loadbalancer" -p "8181:30081@loadbalancer"
     creates: /root/.kube/config
 
 - name: Wait For Cluster Creation
