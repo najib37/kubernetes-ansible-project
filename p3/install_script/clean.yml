@@ -1,0 +1,8 @@
+---
+
+- name: setup the k3d cluster with argocd
+  hosts: all
+  become: true
+  roles:
+    - delete_argocd
+    - delete_k3d

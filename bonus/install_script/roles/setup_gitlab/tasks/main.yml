@@ -1,0 +1,139 @@
+- name: Add GitLab Helm repository
+  kubernetes.core.helm_repository:
+    name: gitlab
+    repo_url: https://charts.gitlab.io/
+    state: present
+
+- name: Install gitlab module for python
+  pip:
+    name: python-gitlab
+    break_system_packages: true
+
+- name: Create gitlab namespace
+  kubernetes.core.k8s:
+    kind: Namespace
+    name: gitlab
+    state: present
+
+- name: Create GitLab values file
+  copy:
+    dest: /tmp/gitlab-values.yml
+    src: "{{ playbook_dir }}/../gitlab_config/gitlab-values.yml"
+
+- name: Install GitLab using Helm
+  kubernetes.core.helm:
+    name: gitlab
+    chart_ref: gitlab/gitlab
+    release_namespace: gitlab
+    values_files:
+      - /tmp/gitlab-values.yml
+    wait: true
+    timeout: 1000s
+
+- name: Apply a rediction webservice service
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('file', playbook_dir + '/../gitlab_config/gitlab-webservice-service.yml') | from_yaml }}"
+    namespace: gitlab
+    wait: true
+    wait_timeout: 1000
+
+- name: Apply a rediction shell service
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('file', playbook_dir + '/../gitlab_config/gitlab-shell-service.yml') | from_yaml }}"
+    namespace: gitlab
+    wait: true
+    wait_timeout: 1000
+
+- name: Get GitLab initial root secret
+  kubernetes.core.k8s_info:
+    kind: Secret
+    name: "gitlab-gitlab-initial-root-password"
+    namespace: gitlab
+  register: gitlab_secret
+
+- name: Get GitLab initial root password
+  set_fact:
+    gitlab_password: "{{ gitlab_secret.resources[0].data.password | b64decode }}"
+
+- name: Create public GitLab project
+  community.general.gitlab_project:
+    api_url: "http://{{ansible_host}}:8181/"
+    api_username: "root"
+    api_password: "{{ gitlab_password }}"
+    name: "my-public-repo"
+    visibility: "public"
+    initialize_with_readme: true
+    state: present
+    validate_certs: false
+
+- name: Configure git repository
+  git:
+    repo: "http://{{ansible_host}}:8181/root/my-public-repo.git"
+    dest: "/tmp/my-public-repo"
+    remote: "origin"
+    force: yes
+    update: yes
+    version: main
+
+- name: Configure git user
+  git_config:
+    name: user.name
+    scope: local
+    repo: /tmp/my-public-repo
+    value: "root"
+
+- name: Configure git email
+  git_config:
+    name: user.email
+    scope: local
+    repo: /tmp/my-public-repo
+    value: "root@localhost"
+
+- name: Copy application files to remote server
+  copy:
+    src: "{{ lookup('env', 'HOME') }}/work/kubz/bonus/application/application-deployment.yml"
+    dest: "/tmp/application-deployment.yml"
+    remote_src: no
+
+- name: Create apps directory in the repository
+  file:
+    path: "/tmp/my-public-repo/apps"
+    state: directory
+    mode: '0755'
+
+- name: Copy files from remote tmp to the repository
+  copy:
+    src: "/tmp/application-deployment.yml"
+    dest: "/tmp/my-public-repo/apps/application-deployment.yml"
+    remote_src: yes
+
+- name: Add and commit files
+  shell:
+    cmd: |
+      cd /tmp/my-public-repo/apps
+      git add .
+      git diff --quiet --exit-code && git commit -m "Adding files from /tmp/application"
+  args:
+    chdir: /tmp/my-public-repo
+  register: git_commit
+  failed_when: git_commit.rc != 0 and git_commit.rc != 1
+
+- name: Push to GitLab repository
+  shell:
+    cmd: |
+      cd /tmp/my-public-repo/apps
+      git push http://root:'{{gitlab_password}}'@'{{ansible_host}}':8181/root/my-public-repo.git main
+  args:
+    chdir: /tmp/my-public-repo
+  when: git_commit.rc == 0
+
+- name: Log GitLab root credentials
+  ansible.builtin.debug:
+    msg: "Gitlab Webservice at http://{{ansible_host}}:8181/root/my-public-repo Creds => Username: root || Password: {{ gitlab_password }}"
+
+- name: Log How to push to GitLab
+  ansible.builtin.debug:
+    msg: "To push to GitLab, use the following command:
+          git push http://root:{{gitlab_password}}@{{ansible_host}}:8181/root/my-public-repo.git main"

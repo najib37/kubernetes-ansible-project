@@ -1,0 +1,50 @@
+
+---
+
+- name: check k3d exists
+  stat:
+    path: /usr/local/bin/k3d
+  register: k3d_exists
+
+- name: Deleting K3d Cluster
+  command: k3d cluster delete -a
+  when: k3d_exists.stat.exists
+
+- name: Deleting K3d Executabe
+  file:
+    path: /root/.kube
+    state: absent
+
+- name: Deleting K3d Executabe
+  file:
+    path: /usr/local/bin/k3d
+    state: absent
+
+- name: Deleting kubectl Executabe
+  file:
+    path: /usr/local/bin/kubectl
+    state: absent
+
+- name: Remove Docker packages
+  apt:
+    name: 
+      - docker-ce
+      - docker-ce-cli
+      - docker-compose-plugin
+      - containerd.io
+    state: absent
+    purge: yes
+
+- name: Remove Docker repository
+  apt_repository:
+    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable"
+    state: absent
+
+- name: Remove Docker GPG key
+  file:
+    path: /etc/apt/keyrings/docker.asc
+    state: absent
+
+- name: Clean apt cache
+  apt:
+    autoremove: true

@@ -1,0 +1,79 @@
+---
+- name: Populate service facts
+  ansible.builtin.service_facts:
+
+- name: Create keyrings directory
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Download Docker GPG key
+  get_url:
+    url: https://download.docker.com/linux/debian/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: '0644'
+
+- name: Add docker repository
+  apt_repository:
+    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable"
+    state: present
+
+- name: Update apt cashe and install docker-ce
+  apt:
+    name: docker-ce
+    state: latest
+    update_cache: true
+
+- name: Install Kubernetes module for python
+  pip:
+    name: kubernetes
+    break_system_packages: true
+
+- name: Install kubectl
+  get_url:
+    url: https://dl.k8s.io/release/v1.33.0/bin/linux/amd64/kubectl
+    dest: /usr/local/bin/kubectl
+    mode: '0755'
+
+- name: Download Helm install script
+  get_url:
+    url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    dest: /tmp/get_helm.sh
+    mode: '0700'
+
+- name: Install Helm
+  command:
+    cmd: /tmp/get_helm.sh
+    creates: /usr/local/bin/helm
+
+- name: Make Sure Docker Service is Running
+  service:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Download k3d Installer
+  get_url:
+    url: https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh
+    dest: /home/
+    mode: '0755'
+
+- name: Install K3d
+  command:
+    cmd: bash /home/install.sh 
+    creates: /usr/local/bin/k3d
+
+- name: Create k3d Cluster
+  command:
+    cmd: k3d cluster create mycluster --api-port "{{ansible_host}}:9192" -p "443:443@loadbalancer" -p "8888:30088@loadbalancer" -p "8181:30081@loadbalancer" -p "2222:30022@loadbalancer" -p "8080:30080@loadbalancer"
+    creates: /root/.kube/config
+
+
+- name: Wait For Cluster Creation
+  kubernetes.core.k8s_info:
+    kind: Node
+    wait: yes
+    wait_condition:
+      type: Ready
+      status: "True"
